@@ -1,0 +1,29 @@
+[project]
+name = "signguard-reproduction"
+version = "0.1.0"
+description = "Reproduction of SignGuard: Byzantine-robust Federated Learning through Collaborative Malicious Gradient Filtering (Xu et al., 2022)"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.4.4",
+    "scikit-learn>=1.8.0",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.7",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+]
