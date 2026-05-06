@@ -1,7 +1,7 @@
 import torch
 
 from aggregators import MultiKrum
-from attacks import a_little_is_enough_attack, fall_of_empires_attack
+from attacks import fall_of_empires_attack
 from datasets import get_dataset
 from experiments import test_classification, train_step
 from models import get_model_for_dataset
@@ -45,9 +45,12 @@ criterion = torch.nn.CrossEntropyLoss()
 
 iteration_per_epoch = len(train_loader[0].dataset) // (batch_size * local_iter)
 
-print(f"\nStarting training: {epochs} epochs, {num_workers} workers ({num_byzantines} Byzantine)")
+print(
+    f"""\nStarting training: {epochs} epochs,
+{num_workers} workers ({num_byzantines} Byzantine)"""
+)
 for epoch in range(epochs):
-    print(f"\n{'='*40}\nEpoch {epoch + 1}/{epochs}\n{'='*40}")
+    print(f"\n{'=' * 40}\nEpoch {epoch + 1}/{epochs}\n{'=' * 40}")
     loss = train_step(
         model=model,
         aggregator=MultiKrum(

@@ -144,7 +144,8 @@ def train_step(
 
     Returns:
     -------
-        
+        tuple[list[float], list[float]]: list of loss for each iterations
+            and list of byzantine rates
     """
     iter_loss = []
     byzantine_rates = []
@@ -196,7 +197,8 @@ def train_step(
 
         if (it + 1) % 10 == 0:
             print(
-                f"Iteration {it + 1}/{iterations}, Loss: {loss_avg:.4f}, Byzantine ratio: {byzantine_ratio:.2f}"
+                f"""Iteration {it + 1}/{iterations}, Loss: {loss_avg:.4f},
+Byzantine ratio: {byzantine_ratio:.2f}"""
             )
 
     print(f"Training complete. Final loss: {iter_loss[-1]:.4f}")
