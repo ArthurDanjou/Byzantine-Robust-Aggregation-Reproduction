@@ -73,6 +73,7 @@ def get_dataset(
     num_workers: int = 1,
     batch_size: int = 32,
     dirichlet_alpha: float = 0,
+    seed: int | None = None,
 ) -> tuple[list[DataLoader], DataLoader]:
     """Return the dataset by name.
 
@@ -85,6 +86,8 @@ def get_dataset(
             Defaults to 32.
         dirichlet_alpha (float, optional): The alpha parameter for Dirichlet sampling.
             Defaults to 0.
+        seed (int | None, optional): Random seed for reproducible partitioning and
+            data loading. Defaults to None.
 
     Returns:
     -------
@@ -99,15 +102,26 @@ def get_dataset(
         raise ValueError(f"Unknown dataset: {name}")
 
     data_per_worker = len(train) // num_workers
+    split_generator = None
+    if seed is not None:
+        split_generator = torch.Generator().manual_seed(seed)
 
     if dirichlet_alpha == 0:
         lengths = [data_per_worker] * num_workers
         lengths[-1] += len(train) - sum(lengths)
 
-        iid_datasets = random_split(train, lengths)
+        iid_datasets = random_split(train, lengths, generator=split_generator)
 
         train_loader = [
-            DataLoader(ds, batch_size=batch_size, shuffle=True) for ds in iid_datasets
+            DataLoader(
+                ds,
+                batch_size=batch_size,
+                shuffle=True,
+                generator=None
+                if seed is None
+                else torch.Generator().manual_seed(seed + idx),
+            )
+            for idx, ds in enumerate(iid_datasets)
         ]
     elif dirichlet_alpha > 0:
         train_loader = sample_dirichlet_niid_loaders(
@@ -115,9 +129,10 @@ def get_dataset(
             num_workers=num_workers,
             alpha=dirichlet_alpha,
             batch_size=batch_size,
+            seed=seed,
         )
     else:
-        raise ValueError("alpha_iid must be greater or equal than 0")
+        raise ValueError("dirichlet_alpha must be greater or equal than 0")
 
     test_loader = DataLoader(test, batch_size=batch_size, shuffle=False)
 
@@ -129,6 +144,7 @@ def sample_dirichlet_niid_loaders(
     num_workers: int,
     alpha: float = 0.5,
     batch_size: int = 32,
+    seed: int | None = None,
 ) -> list[DataLoader]:
     """Sample a list of DataLoaders for a Dirichlet-NIID split of the given dataset.
 
@@ -140,6 +156,8 @@ def sample_dirichlet_niid_loaders(
             Defaults to 0.5.
         batch_size (int, optional): The batch size for the DataLoaders.
             Defaults to 32.
+        seed (int | None, optional): Random seed for reproducible sampling and
+            data loading. Defaults to None.
 
     Returns:
     -------
@@ -147,14 +165,15 @@ def sample_dirichlet_niid_loaders(
     """
     targets = np.array(train_dataset.targets)
     num_classes = len(np.unique(targets))
+    rng = np.random.default_rng(seed)
 
     client_indices = {i: [] for i in range(num_workers)}
 
     for k in range(num_classes):
         class_idx = np.where(targets == k)[0]
-        np.random.shuffle(class_idx)
+        class_idx = rng.permutation(class_idx)
 
-        proportions = np.random.dirichlet(np.repeat(alpha, num_workers))
+        proportions = rng.dirichlet(np.repeat(alpha, num_workers))
         splits = (proportions * len(class_idx)).astype(int)
 
         offset = 0
@@ -168,9 +187,18 @@ def sample_dirichlet_niid_loaders(
 
     train_loaders = []
     for i in range(num_workers):
-        np.random.shuffle(client_indices[i])
+        rng.shuffle(client_indices[i])
         subset = Subset(train_dataset, client_indices[i])
-        train_loaders.append(DataLoader(subset, batch_size=batch_size, shuffle=True))
+        train_loaders.append(
+            DataLoader(
+                subset,
+                batch_size=batch_size,
+                shuffle=True,
+                generator=None
+                if seed is None
+                else torch.Generator().manual_seed(seed + i),
+            )
+        )
 
     return train_loaders
 

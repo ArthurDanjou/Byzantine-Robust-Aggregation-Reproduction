@@ -1,3 +1,6 @@
+import random
+
+import numpy as np
 import torch
 
 from aggregators import SignGuard
@@ -18,7 +21,12 @@ device = torch.device(
 print(f"Using device: {device}")
 
 # Set seed for reproducibility
-torch.manual_seed(42)
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(seed)
 torch.use_deterministic_algorithms(True)
 
 # Define training parameters
@@ -30,7 +38,7 @@ lr = 0.01
 momentum = 0.9
 local_iter = 6
 
-alpha_iid = 0.4
+dirichlet_alpha = 0.4
 
 num_workers = 4
 num_byzantines = 1
@@ -42,9 +50,13 @@ print(f"Model has {sum(p.numel() for p in model.parameters()):,} parameters")
 
 # Load the dataset
 train_loader, test_loader = get_dataset(
-    dataset, batch_size=batch_size, num_workers=num_workers, alpha_iid=alpha_iid
+    dataset,
+    batch_size=batch_size,
+    num_workers=num_workers,
+    dirichlet_alpha=dirichlet_alpha,
+    seed=seed,
 )
-print(f"Dataset loaded: {len(train_loader[0].dataset)} training samples ({'non-iid' if alpha_iid != 0 else 'iid'}), {len(test_loader.dataset)} test samples")  # noqa: E501
+print(f"Dataset loaded: {len(train_loader[0].dataset)} training samples ({'non-iid' if dirichlet_alpha != 0 else 'iid'}), {len(test_loader.dataset)} test samples")  # noqa: E501
 
 # Initialize the optimizer and scheduler
 optimizer = torch.optim.SGD(
