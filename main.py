@@ -1,75 +1,126 @@
 import torch
 
-from aggregators import MultiKrum
-from attacks import fall_of_empires_attack
+from aggregators import SignGuard
+from attacks import a_little_is_enough_attack
 from datasets import get_dataset
-from experiments import test_classification, train_step
+from experiments import evaluate_model, train_client
 from models import get_model_for_dataset
 
+# Determine the device to use (cuda, mps, or cpu)
 device = torch.device(
-    "mps"
-    if torch.mps.is_available()
-    else "cuda"
+    "cuda"
     if torch.cuda.is_available()
+    else "mps"
+    if torch.mps.is_available()
     else "cpu"
 )
 
 print(f"Using device: {device}")
 
+# Set seed for reproducibility
+torch.manual_seed(42)
+torch.use_deterministic_algorithms(True)
+
+# Define training parameters
 epochs = 20
 epoch_milestones = [10, 15]
 dataset = "mnist"
 batch_size = 32
 lr = 0.01
 momentum = 0.9
-local_iter = 1
+local_iter = 6
+
+alpha_iid = 0.4
 
 num_workers = 4
 num_byzantines = 1
 
-
+# Initialize model for the dataset
 print(f"Initializing model for dataset: {dataset}")
-model = get_model_for_dataset(dataset).to(device)
+model = get_model_for_dataset(dataset)
 print(f"Model has {sum(p.numel() for p in model.parameters()):,} parameters")
-train_loader, test_loader = get_dataset(
-    dataset, batch_size=batch_size, num_workers=num_workers
-)
 
+# Load the dataset
+train_loader, test_loader = get_dataset(
+    dataset, batch_size=batch_size, num_workers=num_workers, alpha_iid=alpha_iid
+)
+print(f"Dataset loaded: {len(train_loader[0].dataset)} training samples ({'non-iid' if alpha_iid != 0 else 'iid'}), {len(test_loader.dataset)} test samples")  # noqa: E501
+
+# Initialize the optimizer and scheduler
 optimizer = torch.optim.SGD(
     model.parameters(), lr=lr, momentum=momentum, weight_decay=0.0005
 )
 scheduler = torch.optim.lr_scheduler.MultiStepLR(
     optimizer=optimizer, milestones=epoch_milestones, gamma=0.1
 )
+
+# Initialize the loss criterion
 criterion = torch.nn.CrossEntropyLoss()
 
-iteration_per_epoch = len(train_loader[0].dataset) // (batch_size * local_iter)
+# Calculate the number of iterations per epoch
+iterations_per_epoch = len(train_loader[0].dataset) // (batch_size * local_iter)
 
 print(
-    f"""\nStarting training: {epochs} epochs,
-{num_workers} workers ({num_byzantines} Byzantine)"""
+    f"""\nStarting training: {epochs} epochs, {num_workers} workers ({num_byzantines} Byzantine) and {iterations_per_epoch} iterations per epoch\n"""  # noqa: E501
 )
+
+byz_ratios = []
+losses = []
+model.to(device)
 for epoch in range(epochs):
-    print(f"\n{'=' * 40}\nEpoch {epoch + 1}/{epochs}\n{'=' * 40}")
-    loss = train_step(
-        model=model,
-        aggregator=MultiKrum(
-            n=num_workers, f=num_byzantines, m=num_workers - num_byzantines
-        ),
-        attack=fall_of_empires_attack,
-        attack_kwargs={},
-        device=device,
-        iterations=iteration_per_epoch,
-        num_byzantines=num_byzantines,
-        num_workers=num_workers,
-        train_loader=train_loader,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        criterion=criterion,
-    )
-    accuracy = test_classification(
-        device=device,
-        model=model,
-        test_loader=test_loader,
-    )
-    print(f"Test accuracy: {accuracy:.4f} at epoch {epoch + 1}")
+    print(f"Epoch {epoch + 1}/{epochs}")
+    for iteration in range(iterations_per_epoch):
+        gradients_honests = []
+        gradients_byz = []
+        local_losses = []
+
+        # Simulate byzantine workers
+        for idx in range(num_byzantines):
+            grad, loss = train_client(
+                model, train_loader[idx], optimizer, criterion, device
+            )
+            gradients_byz.append(grad)
+
+        # Simulate honest workers
+        for idx in range(num_byzantines, num_workers):
+            grad, loss = train_client(
+                model, train_loader[idx], optimizer, criterion, device
+            )
+            gradients_honests.append(grad)
+            local_losses.append(loss)
+
+        # Perform the a-little-is-enough attack to generate byzantine gradients
+        gradients_byz = a_little_is_enough_attack(gradients_byz, num_byzantines, z=0.5)
+
+        # Combine byzantine and honest gradients
+        gradients = gradients_byz + gradients_honests
+
+        # Aggregate gradients
+        signguard = SignGuard(f=num_byzantines, use_dbscan=True)
+        aggregated_gradients, selected_idx, byz_ratio = signguard.aggregate(gradients)
+
+        byz_ratios.append(byz_ratio)
+        losses.append(sum(local_losses) / len(local_losses))
+
+        # Update model parameters
+        offset = 0
+        for parameter in model.parameters():
+            numel = parameter.numel()
+            parameter.grad = (
+                aggregated_gradients[offset : offset + numel]
+                .reshape(parameter.shape)
+                .clone()
+            )
+            offset += numel
+
+        optimizer.step()
+
+        # Evaluate model on test set
+        test_acc, test_loss = evaluate_model(model, test_loader, criterion, device)
+        print(f"Test Accuracy: {test_acc:.2f} %, Test Loss: {test_loss:.4f}")
+
+    if scheduler is not None:
+        scheduler.step()
+
+print(f"Byzantine Ratio: {sum(byz_ratios) / len(byz_ratios):.2f}")
+print(f"Loss: {sum(losses) / len(losses):.4f}")
