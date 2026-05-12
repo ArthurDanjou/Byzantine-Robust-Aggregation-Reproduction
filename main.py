@@ -36,7 +36,6 @@ dataset = "mnist"
 batch_size = 32
 lr = 0.01
 momentum = 0.9
-local_iter = 6
 
 dirichlet_alpha = 0.4
 
@@ -70,7 +69,7 @@ scheduler = torch.optim.lr_scheduler.MultiStepLR(
 criterion = torch.nn.CrossEntropyLoss()
 
 # Calculate the number of iterations per epoch
-iterations_per_epoch = len(train_loader[0].dataset) // (batch_size * local_iter)
+iterations_per_epoch = min(len(client_loader) for client_loader in train_loader)
 
 print(
     f"""\nStarting training: {epochs} epochs, {num_workers} workers ({num_byzantines} Byzantine) and {iterations_per_epoch} iterations per epoch\n"""  # noqa: E501
