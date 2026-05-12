@@ -72,6 +72,5 @@ def evaluate_model(
             correct += (predicted == labels).sum().item()
     acc = 100.0 * correct / total
     avg_loss = total_loss / total
-    print("Test Accuracy: %.2f %%, Test Loss: %.4f" % (acc, avg_loss))
 
     return acc, avg_loss
