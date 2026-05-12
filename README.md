@@ -25,11 +25,12 @@ uv run python main.py
 
 Xu, J., Li, Z., Chen, Y., Lyu, L., & Zhou, X. (2022). *Byzantine-robust Federated Learning through Collaborative Malicious Gradient Filtering*. In Proceedings of the 42nd IEEE International Conference on Distributed Computing Systems (ICDCS). [arXiv:2109.05872v2](https://arxiv.org/pdf/2109.05872v2)
 
--- 
+## Planned experiments
 
-Ajouter un comportement différent pour les workers byzantins (ex: latence après calculs pour simuler un réseau lent)
-Définir un rôle à chaque worker (coordonateur, worker normal, worker byzantin)
+The following items are planned extensions and evaluation outputs for this reproduction:
 
-plot:
-  - Attack impact (%) (for all attacks) vs % of Byz Clients for each aggregator
-  - Test accuracy vs Training epochs with all aggregators
+- Add differentiated behavior for Byzantine workers, for example latency after computation to simulate a slow network.
+- Assign an explicit role to each worker (coordinator, normal worker, Byzantine worker).
+- Planned plots:
+  - Attack impact (%) for all attacks vs. percentage of Byzantine clients, for each aggregator.
+  - Test accuracy vs. training epochs across all aggregators.
