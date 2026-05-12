@@ -23,55 +23,6 @@ class Aggregator:
         raise NotImplementedError
 
 
-class MultiKrum(Aggregator):
-    """Implements the Multi-Krum aggregator ()."""
-
-    def __init__(self, n: int, m: int, f: int):
-        """Initializes the Multi-Krum aggregator with the given parameters.
-
-        Args:
-        ----
-            n (int): The number of nodes.
-            m (int): The number of good nodes.
-            f (int): The number of Byzantine nodes.
-        """
-        self.n = n
-        self.m = m
-        self.f = f
-
-    def aggregate(
-        self, gradients: list[torch.Tensor]
-    ) -> tuple[torch.Tensor, list[int], float]:
-        """Aggregates the given node values using the Multi-Krum algorithm.
-
-        Args:
-        ----
-            gradients (list[torch.Tensor]): The gradients from the nodes.
-
-        Returns:
-        -------
-            tuple[torch.Tensor, list[int], float]:
-                The aggregated gradient, selected indices, and Byzantine ratio.
-        """
-        grads = torch.stack(gradients)
-        distances = torch.cdist(grads, grads, p=2.0)
-        sorted_distances, _ = torch.sort(distances, dim=1)
-
-        scores = torch.sum(sorted_distances[:, 1 : self.n - self.f], dim=1)
-        _, best_indices = torch.topk(scores, k=self.m, largest=False)
-        grad = torch.mean(grads[best_indices], dim=0)
-
-        select_idx = best_indices.tolist()
-
-        if self.f > 0:
-            byz_num = sum(1 for i in select_idx if i < self.f)
-            byz_ratio = byz_num / self.f
-        else:
-            byz_ratio = 0.0
-
-        return grad, select_idx, byz_ratio
-
-
 class SignGuard(Aggregator):
     """Implements the SignGuard aggregator (Xu et al. (2022))."""
 
