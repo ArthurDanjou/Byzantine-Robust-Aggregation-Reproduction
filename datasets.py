@@ -119,7 +119,7 @@ def get_dataset(
     else:
         raise ValueError("alpha_iid must be greater or equal than 0")
 
-    test_loader = DataLoader(test, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test, batch_size=batch_size, shuffle=False)
 
     return train_loader, test_loader
 
