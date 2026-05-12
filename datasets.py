@@ -72,18 +72,18 @@ def get_dataset(
     name: str,
     num_workers: int = 1,
     batch_size: int = 32,
-    alpha_iid: float = 0,
+    dirichlet_alpha: float = 0,
 ) -> tuple[list[DataLoader], DataLoader]:
     """Return the dataset by name.
 
     Args:
     ----
         name (str): The name of the dataset to load.
-        num_workers (int, optional): The number of worker threads to use.
+        num_workers (int, optional): The number of federated clients to create.
             Defaults to 1.
         batch_size (int, optional): The batch size to use.
             Defaults to 32.
-        alpha_iid (float, optional): The alpha parameter for Dirichlet sampling.
+        dirichlet_alpha (float, optional): The alpha parameter for Dirichlet sampling.
             Defaults to 0.
 
     Returns:
@@ -100,7 +100,7 @@ def get_dataset(
 
     data_per_worker = len(train) // num_workers
 
-    if alpha_iid == 0:
+    if dirichlet_alpha == 0:
         lengths = [data_per_worker] * num_workers
         lengths[-1] += len(train) - sum(lengths)
 
@@ -109,11 +109,11 @@ def get_dataset(
         train_loader = [
             DataLoader(ds, batch_size=batch_size, shuffle=True) for ds in iid_datasets
         ]
-    elif alpha_iid > 0:
+    elif dirichlet_alpha > 0:
         train_loader = sample_dirichlet_niid_loaders(
             train_dataset=train,
             num_workers=num_workers,
-            alpha=alpha_iid,
+            alpha=dirichlet_alpha,
             batch_size=batch_size,
         )
     else:
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     print(train.data.shape)
     print(test.data.shape)
 
-    cifar10_niid = get_dataset("cifar10", alpha_iid=0.5)
+    cifar10_niid = get_dataset("cifar10", dirichlet_alpha=0.5)
     cifar10_iid = get_dataset("cifar10")
 
     print(cifar10_niid)

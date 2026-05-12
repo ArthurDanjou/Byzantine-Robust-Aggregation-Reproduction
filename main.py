@@ -67,11 +67,13 @@ print(
 byz_ratios = []
 losses = []
 model.to(device)
+signguard = SignGuard(f=num_byzantines, use_dbscan=True)
+
 for epoch in range(epochs):
     print(f"Epoch {epoch + 1}/{epochs}")
     for iteration in range(iterations_per_epoch):
-        gradients_honests = []
-        gradients_byz = []
+        honest_gradients = []
+        byz_gradients = []
         local_losses = []
 
         # Simulate byzantine workers
@@ -79,24 +81,23 @@ for epoch in range(epochs):
             grad, loss = train_client(
                 model, train_loader[idx], optimizer, criterion, device
             )
-            gradients_byz.append(grad)
+            byz_gradients.append(grad)
 
         # Simulate honest workers
         for idx in range(num_byzantines, num_workers):
             grad, loss = train_client(
                 model, train_loader[idx], optimizer, criterion, device
             )
-            gradients_honests.append(grad)
+            honest_gradients.append(grad)
             local_losses.append(loss)
 
         # Perform the a-little-is-enough attack to generate byzantine gradients
-        gradients_byz = a_little_is_enough_attack(gradients_byz, num_byzantines, z=0.5)
+        byz_gradients = a_little_is_enough_attack(byz_gradients, num_byzantines, z=0.5)
 
         # Combine byzantine and honest gradients
-        gradients = gradients_byz + gradients_honests
+        gradients = byz_gradients + honest_gradients
 
         # Aggregate gradients
-        signguard = SignGuard(f=num_byzantines, use_dbscan=True)
         aggregated_gradients, selected_idx, byz_ratio = signguard.aggregate(gradients)
 
         byz_ratios.append(byz_ratio)
@@ -115,9 +116,9 @@ for epoch in range(epochs):
 
         optimizer.step()
 
-        # Evaluate model on test set
-        test_acc, test_loss = evaluate_model(model, test_loader, criterion, device)
-        print(f"Test Accuracy: {test_acc:.2f} %, Test Loss: {test_loss:.4f}")
+    # Evaluate model on test set
+    test_acc, test_loss = evaluate_model(model, test_loader, criterion, device)
+    print(f"Test Accuracy: {test_acc:.2f} %, Test Loss: {test_loss:.4f}")
 
     if scheduler is not None:
         scheduler.step()
