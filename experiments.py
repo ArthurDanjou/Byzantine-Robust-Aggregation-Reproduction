@@ -1,4 +1,5 @@
 import torch
+from torch.nn.utils import parameters_to_vector
 from torch.utils.data import DataLoader
 
 
@@ -30,13 +31,13 @@ def train_client(
     outputs = model(images)
     loss = criterion(outputs, labels)
     loss.backward()
-    gradients = [
-        param.grad.detach().reshape(-1).to(device)
-        if param.grad is not None
-        else torch.zeros_like(param).reshape(-1).to(device)
-        for param in model.parameters()
-    ]
-    return torch.cat(gradients), loss.item()
+    return (
+        parameters_to_vector(
+            p.grad.detach() if p.grad is not None else torch.zeros_like(p)
+            for p in model.parameters()
+        ).to(device),
+        loss.item(),
+    )
 
 
 def evaluate_model(

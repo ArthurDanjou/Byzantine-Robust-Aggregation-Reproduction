@@ -2,6 +2,7 @@ import random
 
 import numpy as np
 import torch
+from torch.nn.utils import vector_to_parameters
 
 from aggregators import SignGuard
 from attacks import a_little_is_enough_attack
@@ -55,7 +56,9 @@ train_loader, test_loader = get_dataset(
     dirichlet_alpha=dirichlet_alpha,
     seed=seed,
 )
-print(f"Dataset loaded: {len(train_loader[0].dataset)} training samples ({'non-iid' if dirichlet_alpha != 0 else 'iid'}), {len(test_loader.dataset)} test samples")  # noqa: E501
+print(
+    f"Dataset loaded: {len(train_loader[0].dataset)} training samples ({'non-iid' if dirichlet_alpha != 0 else 'iid'}), {len(test_loader.dataset)} test samples"
+)  # noqa: E501
 
 # Initialize the optimizer and scheduler
 optimizer = torch.optim.SGD(
@@ -115,15 +118,7 @@ for epoch in range(epochs):
         losses.append(sum(local_losses) / len(local_losses))
 
         # Update model parameters
-        offset = 0
-        for parameter in model.parameters():
-            numel = parameter.numel()
-            parameter.grad = (
-                aggregated_gradients[offset : offset + numel]
-                .reshape(parameter.shape)
-                .clone()
-            )
-            offset += numel
+        vector_to_parameters(aggregated_gradients, model.parameters())
 
         optimizer.step()
 
