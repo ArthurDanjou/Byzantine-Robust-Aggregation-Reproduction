@@ -1,6 +1,19 @@
-# SignGuard Reproduction
+# Byzantine-Robust Aggregation Reproduction
 
-This repository reproduces the experiments from [**Byzantine-robust Federated Learning through Collaborative Malicious Gradient Filtering**](https://arxiv.org/pdf/2109.05872v2) (Xu et al., 2022).
+Reproduction of [**Byzantine-robust Federated Learning through Collaborative Malicious Gradient Filtering**](https://arxiv.org/pdf/2109.05872v2) (Xu et al., 2022) — implementing Multi-Krum, SignGuard, A Little Is Enough, and Fall of Empires in PyTorch.
+
+Also includes [**Robust Collaborative Learning with Linear Gradient Overhead**](https://proceedings.mlr.press/v202/farhadkhani23a.html) (Farhadkhani et al., ICML 2023).
+
+## Implemented aggregators
+
+- **SignGuard** (Xu et al., 2022) — sign-based clustering and norm clipping.
+- **Multi-Krum** (Blanchard et al., 2017) — distance-based outlier filtering.
+- **MoNNA** (Farhadkhani et al., 2023) — Polyak momentum + Nearest-Neighbor Averaging.
+
+## Implemented attacks
+
+- **A Little Is Enough** (Baruch et al., 2019) — crafted malicious gradients within noise bounds.
+- **Fall of Empires** (Xie et al., 2020) — model poisoning through parameter scaling.
 
 ## Motivation
 
@@ -21,16 +34,22 @@ uv sync
 uv run python main.py
 ```
 
-## Reference
+## Tags
+
+`deep-learning` `pytorch` `reproducibility` `adversarial-attacks` `federated-learning` `distributed-learning` `byzantine-robust` `signguard` `multi-krum` `gradient-aggregation`
+
+## References
 
 Xu, J., Li, Z., Chen, Y., Lyu, L., & Zhou, X. (2022). *Byzantine-robust Federated Learning through Collaborative Malicious Gradient Filtering*. In Proceedings of the 42nd IEEE International Conference on Distributed Computing Systems (ICDCS). [arXiv:2109.05872v2](https://arxiv.org/pdf/2109.05872v2)
 
+Farhadkhani, S., Guerraoui, R., Gupta, N., Hoang, L.-N., Pinot, R., & Stephan, J. (2023). *Robust Collaborative Learning with Linear Gradient Overhead*. In Proceedings of the 40th International Conference on Machine Learning (ICML). [PMLR 202:9761–9813](https://proceedings.mlr.press/v202/farhadkhani23a.html)
+
 ## Planned experiments
 
-The following items are planned extensions and evaluation outputs for this reproduction:
+- Attack impact (%) for all attacks vs. percentage of Byzantine clients, for each aggregator.
+- Test accuracy vs. training epochs across all aggregators.
+- Verify MoNNA's theoretical linear gradient overhead in practice.
 
-- Add differentiated behavior for Byzantine workers, for example latency after computation to simulate a slow network.
-- Assign an explicit role to each worker (coordinator, normal worker, Byzantine worker).
-- Planned plots:
-  - Attack impact (%) for all attacks vs. percentage of Byzantine clients, for each aggregator.
-  - Test accuracy vs. training epochs across all aggregators.
+## Open questions
+
+- **Flatten puis relink** — Est-ce que le découpage (`parameters_to_vector`) suivi d'un `vector_to_parameters` avec un optimizer externe est vraiment nécessaire ? L'optimizer garde un état interne (momentum buffer, etc.) qui n'est pas recalculé après le relink, ce qui peut rendre le clipping via l'aggregateur incohérent. Une alternative serait de faire l'update directement sur les paramètres sans repasser par l'optimizer, ou de synchroniser les buffers de momentum entre le modèle et l'optimizer. Cette question est en cours d'investigation et peut guider la conception d'une abstraction plus propre dans krum.

@@ -24,7 +24,17 @@ class Aggregator:
 
 
 class MultiKrum(Aggregator):
+    """Implements the Multi-Krum aggregator (Blanchard et al. (2017))."""
+
     def __init__(self, n: int, m: int, f: int):
+        """Initializes the Multi-Krum aggregator with the given parameters.
+
+        Args:
+        ----
+            n (int): The total number of nodes.
+            m (int): The number of nodes to select.
+            f (int): The number of Byzantine nodes.
+        """
         self.n = n
         self.m = m
         self.f = f
@@ -32,6 +42,17 @@ class MultiKrum(Aggregator):
     def aggregate(
         self, gradients: list[torch.Tensor]
     ) -> tuple[torch.Tensor, list[int], float]:
+        """Aggregates the given node values using the Multi-Krum algorithm.
+
+        Args:
+        ----
+            gradients (list[torch.Tensor]): The gradients from the nodes.
+
+        Returns:
+        -------
+            tuple[torch.Tensor, list[int], float]:
+                The aggregated gradient, selected indices, and Byzantine ratio.
+        """
         grads = torch.stack(gradients)
         distances = torch.cdist(grads, grads, p=2.0)
         sorted_distances, _ = torch.sort(distances, dim=1)
@@ -137,3 +158,39 @@ class SignGuard(Aggregator):
 
         return global_grad, benign_idx, byz_ratio
 
+
+class MoNNA(Aggregator):
+    """Implements the MoNNA aggregator (Farhadkhani & al. 2023)"""
+
+    def __init__(self, f: int):
+        """Initializes the MoNNA aggregator.
+
+        Args:
+        ----
+            f (int): The number of Byzantine nodes.
+        """
+        self.f = f
+
+    def aggregate(
+        self, gradients: list[torch.Tensor]
+    ) -> tuple[torch.Tensor, list[int], float]:
+        """Aggregates the given node values using the MoNNA algorithm.
+
+        Args:
+        ----
+            gradients (list[torch.Tensor]): The gradients from the nodes.
+
+        Returns:
+        -------
+            tuple[torch.Tensor, list[int], float]:
+                The aggregated gradient, selected indices, and Byzantine ratio.
+        """
+        grads = torch.stack(gradients)
+        n = grads.size(0)
+        k = n - self.f - 1
+
+        distances = torch.cdist(grads, grads)
+        nearest = distances.topk(k, largest=False, dim=1).indices
+
+        nna = torch.stack([grads[nearest[i]].mean(dim=0) for i in range(n)])
+        return nna.mean(dim=0), list(range(n)), 0.0

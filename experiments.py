@@ -6,28 +6,13 @@ from torch.utils.data import DataLoader
 def train_client(
     model: torch.nn.Module,
     train_loader: DataLoader,
-    optimizer: torch.optim.Optimizer,
     criterion: torch.nn.Module,
     device: torch.device,
 ) -> tuple[torch.Tensor, float]:
-    """Train the client model on the given data using the specified optimizer.
-
-    Args:
-    ----
-        model (nn.Module): The client model to train.
-        train_loader (DataLoader): The data loader for the training data.
-        optimizer (torch.optim.Optimizer): The optimizer to use for training.
-        criterion (torch.nn.Module): The loss function to use for training.
-        device (torch.device): The device to use for training.
-
-    Returns:
-    -------
-        tuple[torch.Tensor, float]: The concatenated gradients and the loss value.
-    """
     model.train()
     images, labels = next(iter(train_loader))
     images, labels = images.to(device), labels.to(device)
-    optimizer.zero_grad()
+    model.zero_grad()
     outputs = model(images)
     loss = criterion(outputs, labels)
     loss.backward()
